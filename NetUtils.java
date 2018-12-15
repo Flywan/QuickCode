@@ -1,3 +1,8 @@
+import android.content.Context;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
+import android.telephony.TelephonyManager;
+
 /**
  * 获取网络状态工具类
  */
@@ -8,6 +13,7 @@ public class NetUtils {
     public static final int NETWORK_3G = 3; // 3G
     public static final int NETWORK_4G = 4; // 4G
     public static final int NETWORK_MOBILE = 5; // 手机流量
+    public static final int NETWORK_LAN = 6; //有线
 
     /**
      * 获取运营商名字
@@ -41,6 +47,9 @@ public class NetUtils {
         NetworkInfo activeNetInfo = connManager.getActiveNetworkInfo();
         if (activeNetInfo == null || !activeNetInfo.isAvailable()) {
             return NETWORK_NONE;
+        }
+        if (activeNetInfo.getType() == ConnectivityManager.TYPE_ETHERNET){
+            return NETWORK_LAN;
         }
         // 判断是否为WIFI
         NetworkInfo wifiInfo = connManager.getNetworkInfo(ConnectivityManager.TYPE_WIFI);
@@ -97,6 +106,30 @@ public class NetUtils {
             default:
                 return NETWORK_MOBILE;
         }
+    }
+
+    public static boolean is3G(Context context){
+        return getNetworkState(context) == NETWORK_3G;
+    }
+
+    public static boolean is4G(Context context){
+        return getNetworkState(context) == NETWORK_4G;
+    }
+
+    public static boolean isNoNetWork(Context context){
+        return getNetworkState(context) == NETWORK_NONE;
+    }
+
+    public static boolean is2G(Context context){
+        return getNetworkState(context) == NETWORK_2G;
+    }
+
+    public static boolean isWifi(Context context){
+        return getNetworkState(context) == NETWORK_WIFI;
+    }
+    
+    public static boolean isLAN(Context context){
+        return getNetworkState(context) == NETWORK_LAN;
     }
 
     /**
