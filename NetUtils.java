@@ -1,7 +1,23 @@
+package com.mario.devicemanager.base;
+
 import android.content.Context;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
+import android.net.wifi.WifiManager;
+import android.support.annotation.NonNull;
 import android.telephony.TelephonyManager;
+import android.util.Log;
+
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
+import java.net.Inet4Address;
+import java.net.Inet6Address;
+import java.net.InetAddress;
+import java.net.NetworkInterface;
+import java.util.Collections;
+import java.util.Enumeration;
+import java.util.List;
 
 /**
  * 获取网络状态工具类
@@ -127,7 +143,7 @@ public class NetUtils {
     public static boolean isWifi(Context context){
         return getNetworkState(context) == NETWORK_WIFI;
     }
-    
+
     public static boolean isLAN(Context context){
         return getNetworkState(context) == NETWORK_LAN;
     }
@@ -170,4 +186,149 @@ public class NetUtils {
         }
         return false;
     }
+
+    public static int getWifiRssi(Context context) {
+        return ((WifiManager) context.getSystemService(Context.WIFI_SERVICE)).getConnectionInfo().getRssi();
+    }
+
+    public static boolean ping(String host){
+        Process process = null;
+        String command = "ping -c 1 -w 1000 " + host;
+        try {
+            process = Runtime.getRuntime().exec(command);
+            if (process == null){
+                Log.e("dmg", "ping process is null.");
+                return false;
+            }
+            int status = process.waitFor();
+            if (status == 0){
+                return true;
+            }else {
+                return false;
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+
+
+    public static String getConnectWifiSsid(Context context) {
+        return ((WifiManager) context.getSystemService(Context.WIFI_SERVICE)).getConnectionInfo().getSSID().replace("\"", "");
+    }
+
+    private static String loadFileAsString(String filePath) throws IOException {
+        StringBuffer fileData = new StringBuffer(1000);
+        BufferedReader reader = new BufferedReader(new FileReader(filePath));
+        char[] buf = new char[1024];
+        while (true) {
+            int numRead = reader.read(buf);
+            if (numRead != -1) {
+                fileData.append(String.valueOf(buf, 0, numRead));
+            } else {
+                reader.close();
+                return fileData.toString();
+            }
+        }
+    }
+
+    //wifi -> wlan0: 有线标志， lan -> eth0: 无线标志
+    public static String getMacAddr(@NonNull String type) {
+        String tag = "";
+        if (type.equals("wifi")){
+            tag = "wlan0";
+        }else if(type.equals("lan")){
+            tag = "eth0";
+        }
+        try {
+            List<NetworkInterface> all = Collections.list(NetworkInterface.getNetworkInterfaces());
+            for (NetworkInterface nif : all) {
+                if (!nif.getName().equalsIgnoreCase(tag)) continue;
+
+                byte[] macBytes = nif.getHardwareAddress();
+                if (macBytes == null) {
+                    return "";
+                }
+
+                StringBuilder res1 = new StringBuilder();
+                for (byte b : macBytes) {
+                    res1.append(String.format("%02X:",b));
+                }
+
+                if (res1.length() > 0) {
+                    res1.deleteCharAt(res1.length() - 1);
+                }
+                return res1.toString();
+            }
+        } catch (Exception ex) {
+        }
+        return "02:00:00:00:00:00";
+    }
+
+    public static String getInnerIpAddressForIPv4() {
+        return getInnerIpAddress(true);
+    }
+
+    public static String getInnerIpAddressForIPv6() {
+        return getInnerIpAddress(false);
+    }
+
+    private static String getInnerIpAddress(boolean isForIPv4) {
+        try {
+            Enumeration<NetworkInterface> en = NetworkInterface.getNetworkInterfaces();
+            while (en.hasMoreElements()) {
+                Enumeration<InetAddress> enumIpAddr = ((NetworkInterface) en.nextElement()).getInetAddresses();
+                while (enumIpAddr.hasMoreElements()) {
+                    InetAddress inetAddress = (InetAddress) enumIpAddr.nextElement();
+                    if (!inetAddress.isLoopbackAddress()) {
+                        if (isForIPv4 && (inetAddress instanceof Inet4Address)) {
+                            return inetAddress.getHostAddress().toString();
+                        }
+                        if (!isForIPv4 && (inetAddress instanceof Inet6Address)) {
+                            return inetAddress.getHostAddress().toString();
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    public static String get3gCardModel(Context context) {
+        TelephonyManager manager = (TelephonyManager) context.getSystemService(Context.TELEPHONY_SERVICE);
+        String language = context.getResources().getConfiguration().locale.getLanguage();
+        String operator = manager.getSimOperator();
+        if (operator == null) {
+            return null;
+        }
+        if (operator.equals("46000") || operator.equals("46002") || operator.equals("46007")) {
+            if (language.endsWith("zh")) {
+                return "中国移动";
+            }
+            return "China Mobile";
+        } else if (operator.equals("46001")) {
+            return language.endsWith("zh") ? "中国联通" : "China Unicom";
+        } else {
+            if (operator.equals("46003")) {
+                return language.endsWith("zh") ? "中国电信" : "China Telecom";
+            } else {
+                return null;
+            }
+        }
+    }
+
+    public static String getNetworkInfo(Context context) {
+        NetworkInfo ni = ((ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE)).getNetworkInfo(0);
+        if (ni != null) {
+            return ni.getExtraInfo();
+        }
+        return null;
+    }
+
+
+
 }
